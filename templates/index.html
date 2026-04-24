@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Castanet — Chromecast Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0a0a0b;
+    --surface:  #111114;
+    --panel:    #16161a;
+    --border:   #2a2a32;
+    --accent:   #e8ff47;
+    --accent2:  #47d4ff;
+    --red:      #ff4747;
+    --green:    #47ff8c;
+    --text:     #e8e8f0;
+    /* --muted:    #6a6a7a; */
+    --muted:    #ffffff;	
+    --mono:     'JetBrains Mono', monospace;
+    --display:  'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.05) 2px,
+      rgba(0,0,0,0.05) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: rgba(10,10,11,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .logo-text {
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 1px;
+  }
+
+  .header-tag {
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+  }
+
+  /* Layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: calc(100vh - 65px);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    position: sticky;
+    top: 65px;
+    height: calc(100vh - 65px);
+    overflow-y: auto;
+  }
+
+  .sidebar-section {
+    padding: 0 20px;
+    margin-bottom: 8px;
+  }
+
+  .sidebar-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 12px 20px 6px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    margin: 0 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all .15s;
+    font-size: 12px;
+    border: 1px solid transparent;
+  }
+
+  .nav-item:hover { color: var(--text); background: var(--panel); }
+
+  .nav-item.active {
+    color: var(--accent);
+    background: rgba(232,255,71,.07);
+    border-color: rgba(232,255,71,.15);
+  }
+
+  .nav-item .icon { font-size: 14px; width: 18px; text-align: center; }
+
+  .connection-status {
+    margin: 0 20px;
+    margin-bottom: 24px;
+    padding: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .status-label { color: var(--muted); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+  .status-value { color: var(--text); font-size: 12px; font-weight: 500; }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    display: inline-block;
+    margin-right: 6px;
+  }
+  .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  .dot.red { background: var(--red); }
+  .dot.yellow { background: var(--accent); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .5; }
+  }
+
+  /* Main content */
+  .main {
+    padding: 32px;
+    max-width: 860px;
+  }
+
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* Section headers */
+  .section-title {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .section-sub {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 24px;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Form fields */
+  .field-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .field-group.single { grid-template-columns: 1fr; }
+  .field-group.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  input[type="text"],
+  input[type="password"],
+  input[type="number"],
+  select {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    transition: border .15s;
+    width: 100%;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(232,255,71,.1);
+  }
+
+  select option { background: var(--panel); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all .15s;
+    letter-spacing: .5px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { background: #f5ff70; box-shadow: 0 0 16px rgba(232,255,71,.3); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--muted); }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--red);
+    border-color: rgba(255,71,71,.3);
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+  .btn-danger:hover { background: rgba(255,71,71,.1); }
+
+  .btn-accent2 {
+    background: transparent;
+    color: var(--accent2);
+    border-color: rgba(71,212,255,.3);
+  }
+  .btn-accent2:hover { background: rgba(71,212,255,.1); }
+
+  /* Terminal / log */
+  .terminal {
+    background: #050506;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    min-height: 120px;
+    max-height: 280px;
+    overflow-y: auto;
+    margin-top: 16px;
+  }
+
+  .terminal:empty::before { content: '// output will appear here'; color: var(--muted); }
+
+  .log-info  { color: var(--text); }
+  .log-ok    { color: var(--green); }
+  .log-warn  { color: var(--accent); }
+  .log-error { color: var(--red); }
+  .log-dim   { color: var(--muted); }
+  .log-accent2 { color: var(--accent2); }
+
+  /* Progress bar */
+  .progress-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+    margin-top: 12px;
+    display: none;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    width: 0%;
+    transition: width .4s ease;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  /* Network list */
+  .network-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .network-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+
+  .network-item:hover { border-color: var(--accent); background: rgba(232,255,71,.04); }
+  .network-item.selected { border-color: var(--accent); background: rgba(232,255,71,.07); }
+
+  .network-info { display: flex; flex-direction: column; gap: 3px; }
+  .network-ssid { font-weight: 600; font-size: 13px; }
+  .network-meta { font-size: 11px; color: var(--muted); display: flex; gap: 12px; }
+
+  .signal-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 16px;
+  }
+
+  .signal-bar {
+    width: 4px;
+    background: var(--border);
+    border-radius: 1px;
+  }
+
+  .signal-bar:nth-child(1) { height: 4px; }
+  .signal-bar:nth-child(2) { height: 8px; }
+  .signal-bar:nth-child(3) { height: 12px; }
+  .signal-bar:nth-child(4) { height: 16px; }
+
+  .signal-bar.active { background: var(--green); }
+
+  /* Device info grid */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .info-cell {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+
+  .info-key { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+  .info-val { font-size: 12px; color: var(--text); word-break: break-all; }
+  .info-val.accent { color: var(--accent); font-weight: 600; }
+
+  /* Configured networks table */
+  .net-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  .net-table th { text-align: left; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  .net-table td { padding: 10px; border-bottom: 1px solid rgba(42,42,50,.5); font-size: 12px; }
+  .net-table tr:last-child td { border-bottom: none; }
+
+  /* Toggle */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(42,42,50,.5);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 12px; color: var(--text); }
+  .toggle-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .toggle {
+    appearance: none;
+    width: 36px;
+    height: 20px;
+    background: var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    position: relative;
+    transition: background .2s;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: var(--muted);
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: all .2s;
+  }
+  .toggle:checked { background: rgba(232,255,71,.2); border: 1px solid var(--accent); }
+  .toggle:checked::after { left: 19px; background: var(--accent); }
+
+  /* Alert */
+  .alert {
+    padding: 12px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-top: 12px;
+    display: none;
+  }
+  .alert.success { background: rgba(71,255,140,.08); border: 1px solid rgba(71,255,140,.2); color: var(--green); }
+  .alert.error   { background: rgba(255,71,71,.08); border: 1px solid rgba(255,71,71,.2); color: var(--red); }
+  .alert.info    { background: rgba(71,212,255,.08); border: 1px solid rgba(71,212,255,.2); color: var(--accent2); }
+  .alert.show    { display: block; }
+
+  /* Step indicator */
+  .steps {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+  }
+
+  .step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  .step::before {
+    content: '';
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    right: -50%;
+    height: 1px;
+    background: var(--border);
+    z-index: 0;
+  }
+
+  .step:last-child::before { display: none; }
+
+  .step-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--muted);
+    z-index: 1;
+    position: relative;
+    transition: all .3s;
+  }
+
+  .step.done .step-dot { background: rgba(71,255,140,.1); border-color: var(--green); color: var(--green); }
+  .step.active .step-dot { background: rgba(232,255,71,.1); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 12px rgba(232,255,71,.3); }
+
+  .step-label { font-size: 10px; color: var(--muted); margin-top: 6px; letter-spacing: .5px; text-align: center; }
+  .step.active .step-label { color: var(--accent); }
+  .step.done .step-label { color: var(--green); }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .tab-pane.active { animation: fadeIn .2s ease; }
+
+  .spinning { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🎬</div>
+    <div>
+      <div class="logo-text">Castanet</div>
+      <div class="logo-sub">Chromecast Setup Tool</div>
+    </div>
+  </div>
+  <div class="header-tag">NO GOOGLE HOME REQUIRED</div>
+</header>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="connection-status">
+        <div class="status-row">
+          <span class="status-label">Device</span>
+          <span class="status-value" id="sb-device-name">—</span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">IP</span>
+          <span class="status-value" id="sb-ip">—</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+          <span class="dot" id="sb-dot"></span>
+          <span style="font-size:11px;color:var(--muted)" id="sb-status">Not connected</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-label">Setup</div>
+    <div class="nav-item active" data-tab="connect" onclick="switchTab('connect', this)">
+      <span class="icon">📡</span> Connect to WiFi
+    </div>
+    <div class="nav-item" data-tab="device" onclick="switchTab('device', this)">
+      <span class="icon">ℹ️</span> Device Info
+    </div>
+
+    <div class="sidebar-label">Management</div>
+    <div class="nav-item" data-tab="networks" onclick="switchTab('networks', this)">
+      <span class="icon">🌐</span> Saved Networks
+    </div>
+    <div class="nav-item" data-tab="settings" onclick="switchTab('settings', this)">
+      <span class="icon">⚙️</span> Device Settings
+    </div>
+
+    <div class="sidebar-label" style="margin-top:auto">Help</div>
+    <div class="nav-item" data-tab="guide" onclick="switchTab('guide', this)">
+      <span class="icon">📖</span> Usage Guide
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- ─── CONNECT TAB ─── -->
+    <div class="tab-pane active" id="tab-connect">
+      <div class="section-title">Connect to WiFi</div>
+      <div class="section-sub">Configure your Chromecast's WiFi connection without Google Home</div>
+
+      <!-- Steps -->
+      <div class="steps">
+        <div class="step active" id="step-1">
+          <div class="step-dot">1</div>
+          <div class="step-label">Device</div>
+        </div>
+        <div class="step" id="step-2">
+          <div class="step-dot">2</div>
+          <div class="step-label">Scan</div>
+        </div>
+        <div class="step" id="step-3">
+          <div class="step-dot">3</div>
+          <div class="step-label">Network</div>
+        </div>
+        <div class="step" id="step-4">
+          <div class="step-dot">4</div>
+          <div class="step-label">Connect</div>
+        </div>
+      </div>
+
+      <!-- Step 1: Device -->
+      <div class="card" id="card-step1">
+        <div class="card-title">01 // Device IP</div>
+        <div class="field-group single">
+          <div class="field">
+            <label>Chromecast IP Address</label>
+            <input type="text" id="cc-ip" placeholder="192.168.1.100" value="">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="loadDevice()">
+          <span id="btn-connect-icon">→</span> Connect to Device
+        </button>
+
+        <div id="device-alert" class="alert"></div>
+        <div id="device-info-mini" style="display:none;margin-top:12px">
+          <div class="info-grid" id="device-info-grid"></div>
+        </div>
+      </div>
+
+      <!-- Step 2: Scan -->
+      <div class="card" id="card-step2" style="opacity:.4;pointer-events:none">
+        <div class="card-title">02 // Scan for Networks</div>
+        <p style="color:var(--muted);font-size:12px;margin-bottom:12px">Trigger a WiFi scan on the device. This takes ~20 seconds.</p>
+        <button class="btn btn-accent2" onclick="startScan()" id="btn-scan">
+          📶 Scan for Networks
+        </button>
+        <div class="progress-wrap" id="scan-progress-wrap">
+          <div class="progress-bar" id="scan-progress-bar"></div>
+        </div>
+        <div class="terminal" id="scan-log"></div>
+        <div class="network-list" id="network-list"></div>
+      </div>
+
+      <!-- Step 3 & 4: Password & Connect -->
+      <div class="card" id="card-step3" style="opacity:.4;pointer-events:none">
+        <div class="card-title">03–04 // Enter Password & Connect</div>
+        <div class="field-group single">
+          <div class="field">
+            <label>Selected Network (SSID)</label>
+            <input type="text" id="wifi-ssid" placeholder="Select a network above" readonly>
+          </div>
+        </div>
+        <div class="field-group single">
+          <div class="field">
+            <label>WiFi Password</label>
+            <input type="password" id="wifi-pass" placeholder="••••••••">
+          </div>
+        </div>
+        <input type="hidden" id="wifi-wpa-auth">
+        <input type="hidden" id="wifi-wpa-cipher">
+        <div style="margin-top:4px">
+          <button class="btn btn-primary" onclick="doConnect()" id="btn-connect-wifi">
+            🔗 Connect Chromecast
+          </button>
+        </div>
+        <div class="terminal" id="connect-log"></div>
+        <div id="connect-alert" class="alert"></div>
+      </div>
+    </div>
+
+    <!-- ─── DEVICE TAB ─── -->
+    <div class="tab-pane" id="tab-device">
+      <div class="section-title">Device Info</div>
+      <div class="section-sub">Full information returned by the Chromecast setup API</div>
+
+      <div class="card">
+        <div class="card-title">Device IP</div>
+        <div class="field-group" style="align-items:flex-end">
+          <div class="field">
+            <label>Chromecast IP</label>
+            <input type="text" id="dev-ip" placeholder="192.168.1.100">
+          </div>
+          <button class="btn btn-secondary" onclick="fetchDeviceInfo()">Fetch Info</button>
+        </div>
+        <div class="terminal" id="dev-info-log"></div>
+      </div>
+
+      <div id="dev-info-cards" class="info-grid" style="display:none;margin-top:0"></div>
+    </div>
+
+    <!-- ─── NETWORKS TAB ─── -->
+    <div class="tab-pane" id="tab-networks">
+      <div class="section-title">Saved Networks</div>
+      <div class="section-sub">View and manage WiFi networks stored on the device</div>
+      <div class="card">
+        <div class="card-title">Device IP</div>
+        <div class="field-group" style="align-items:flex-end">
+          <div class="field">
+            <label>Chromecast IP</label>
+            <input type="text" id="nets-ip" placeholder="192.168.1.100">
+          </div>
+          <button class="btn btn-secondary" onclick="fetchSavedNetworks()">Load Networks</button>
+        </div>
+        <div id="nets-table-wrap">
+          <div class="terminal" id="nets-log" style="min-height:60px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SETTINGS TAB ─── -->
+    <div class="tab-pane" id="tab-settings">
+      <div class="section-title">Device Settings</div>
+      <div class="section-sub">Rename device and configure opt-in settings</div>
+      <div class="card">
+        <div class="card-title">Device Connection</div>
+        <div class="field-group single">
+          <div class="field">
+            <label>Chromecast IP</label>
+            <input type="text" id="settings-ip" placeholder="192.168.1.100">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Device Name</div>
+        <div class="field-group single">
+          <div class="field">
+            <label>Display Name</label>
+            <input type="text" id="settings-name" placeholder="Living Room TV">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Privacy / Opt-in</div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Crash Reports</div>
+            <div class="toggle-desc">Send crash data to Google</div>
+          </div>
+          <input type="checkbox" class="toggle" id="opt-crash">
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Usage Statistics</div>
+            <div class="toggle-desc">Share usage stats with Google</div>
+          </div>
+          <input type="checkbox" class="toggle" id="opt-stats">
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Opencast</div>
+            <div class="toggle-desc">Allow casting from any app</div>
+          </div>
+          <input type="checkbox" class="toggle" id="opt-opencast">
+        </div>
+
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+        </div>
+        <div id="settings-alert" class="alert"></div>
+      </div>
+    </div>
+
+    <!-- ─── GUIDE TAB ─── -->
+    <div class="tab-pane" id="tab-guide">
+      <div class="section-title">Usage Guide</div>
+      <div class="section-sub">How to set up your Chromecast without Google Home</div>
+
+      <div class="card">
+        <div class="card-title">Prerequisites</div>
+        <div style="color:var(--text);font-size:12px;line-height:1.9">
+          <p style="margin-bottom:8px">You need:</p>
+          <p>▸ Chromecast connected via <span style="color:var(--accent)">Ethernet</span> (or on its setup hotspot)</p>
+          <p>▸ Chromecast's <span style="color:var(--accent)">IP address</span> — find it with Wireshark or your router</p>
+          <p>▸ Target WiFi SSID and password</p>
+          <p>▸ This tool running on the <span style="color:var(--accent)">same network</span> as the Chromecast</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Step by Step</div>
+        <div style="font-size:12px;line-height:2;color:var(--text)">
+          <p><span style="color:var(--accent2)">1.</span> Enter the Chromecast IP and click <b>Connect to Device</b></p>
+          <p><span style="color:var(--accent2)">2.</span> Click <b>Scan for Networks</b> — wait ~20s for results</p>
+          <p><span style="color:var(--accent2)">3.</span> Click your target WiFi network in the list</p>
+          <p><span style="color:var(--accent2)">4.</span> Enter the WiFi password and click <b>Connect Chromecast</b></p>
+          <p><span style="color:var(--accent2)">5.</span> <span style="color:var(--accent)">Unplug the Ethernet cable</span> — the Chromecast won't use WiFi while Ethernet is connected!</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚠️ Important Notes</div>
+        <div style="font-size:12px;line-height:2;color:var(--muted)">
+          <p>• If Ethernet is still plugged in, the Chromecast will ARP for its WiFi IP on Ethernet and drop the WiFi connection. <span style="color:var(--text)">Unplug it!</span></p>
+          <p>• The device uses TLS 1.2 with a self-signed cert — connections are still encrypted</p>
+          <p>• Password is RSA-encrypted before sending to the device</p>
+          <p>• <code style="color:var(--accent)">keep_hotspot_until_connected: true</code> is sent so setup via hotspot is possible</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ─── State ───
+let currentIP = '';
+let selectedNetwork = null;
+
+// ─── Tab switching ───
+function switchTab(name, el) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  el.classList.add('active');
+}
+
+// ─── Sidebar status ───
+function setSidebarStatus(ip, name, state) {
+  document.getElementById('sb-ip').textContent = ip || '—';
+  document.getElementById('sb-device-name').textContent = name || '—';
+  const dot = document.getElementById('sb-dot');
+  const status = document.getElementById('sb-status');
+  dot.className = 'dot ' + (state === 'ok' ? 'green' : state === 'error' ? 'red' : '');
+  status.textContent = state === 'ok' ? 'Connected' : state === 'error' ? 'Error' : 'Not connected';
+}
+
+// ─── Log helpers ───
+function log(termId, msg, cls = 'log-info') {
+  const t = document.getElementById(termId);
+  const line = document.createElement('div');
+  line.className = cls;
+  const ts = new Date().toLocaleTimeString('en-GB', {hour12:false});
+  line.textContent = `[${ts}] ${msg}`;
+  t.appendChild(line);
+  t.scrollTop = t.scrollHeight;
+}
+
+function clearLog(termId) {
+  document.getElementById(termId).innerHTML = '';
+}
+
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = `alert ${type} show`;
+}
+
+function hideAlert(id) {
+  document.getElementById(id).className = 'alert';
+}
+
+// ─── Unlock step ───
+function unlockStep(cardId, stepId) {
+  const card = document.getElementById(cardId);
+  card.style.opacity = '1';
+  card.style.pointerEvents = 'auto';
+  card.style.animation = 'fadeIn .3s ease';
+  document.getElementById(stepId).classList.add('active');
+}
+
+function markStepDone(stepId) {
+  const el = document.getElementById(stepId);
+  el.classList.remove('active');
+  el.classList.add('done');
+  el.querySelector('.step-dot').textContent = '✓';
+}
+
+// ─── Signal bars ───
+function signalBars(rssi) {
+  const s = rssi < -80 ? 1 : rssi < -70 ? 2 : rssi < -60 ? 3 : 4;
+  return `<div class="signal-bars">
+    ${[1,2,3,4].map(i => `<div class="signal-bar ${i<=s?'active':''}"></div>`).join('')}
+  </div>`;
+}
+
+// ─── Auth / Cipher names ───
+const AUTH_NAMES  = {0:'Open',1:'WEP',2:'WPA',3:'WPA2',4:'WPA/WPA2',5:'WPA3',6:'WPA2/WPA3'};
+const CIPHER_NAMES = {0:'None',1:'WEP',2:'TKIP',3:'AES/CCMP',4:'TKIP+AES'};
+
+// ─── STEP 1: Load device ───
+async function loadDevice() {
+  const ip = document.getElementById('cc-ip').value.trim();
+  if (!ip) return showAlert('device-alert', 'Enter an IP address', 'error');
+  hideAlert('device-alert');
+
+  const btn = document.querySelector('#card-step1 .btn-primary');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinning">⟳</span> Connecting...';
+
+  try {
+    const res = await fetch('/api/device_info', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ip})
+    });
+    const data = await res.json();
+
+    if (!data.ok) throw new Error(data.error);
+
+    currentIP = ip;
+    document.getElementById('dev-ip').value = ip;
+    document.getElementById('nets-ip').value = ip;
+    document.getElementById('settings-ip').value = ip;
+
+    const info = data.info;
+    const name = info.name || info.device_name || 'Unknown';
+    setSidebarStatus(ip, name, 'ok');
+
+    // Show mini info
+    const grid = document.getElementById('device-info-grid');
+    grid.innerHTML = `
+      <div class="info-cell"><div class="info-key">Name</div><div class="info-val accent">${name}</div></div>
+      <div class="info-cell"><div class="info-key">Build</div><div class="info-val">${info.build_version || '—'}</div></div>
+      <div class="info-cell"><div class="info-key">Model</div><div class="info-val">${info.model_name || '—'}</div></div>
+      <div class="info-cell"><div class="info-key">Cast Protocol</div><div class="info-val">${info.cast_build_revision || '—'}</div></div>
+    `;
+    document.getElementById('device-info-mini').style.display = 'block';
+    showAlert('device-alert', `✓ Connected to "${name}"`, 'success');
+    markStepDone('step-1');
+    unlockStep('card-step2', 'step-2');
+
+  } catch (e) {
+    setSidebarStatus(ip, null, 'error');
+    showAlert('device-alert', '✗ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '→ Connect to Device';
+  }
+}
+
+// ─── STEP 2: Scan ───
+function startScan() {
+  if (!currentIP) return;
+  const btn = document.getElementById('btn-scan');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinning">⟳</span> Scanning...';
+  clearLog('scan-log');
+  document.getElementById('network-list').innerHTML = '';
+
+  const pw = document.getElementById('scan-progress-wrap');
+  const pb = document.getElementById('scan-progress-bar');
+  pw.style.display = 'block';
+  pb.style.width = '0%';
+
+  const es = new EventSource(`/api/scan_wifi?dummy=${Date.now()}`);
+
+  // We use fetch+SSE via POST
+  es.close();
+  fetchSSE('/api/scan_wifi', {ip: currentIP}, (evt) => {
+    const d = JSON.parse(evt);
+    if (d.step === 'scan_start') {
+      log('scan-log', d.msg, 'log-accent2');
+      pb.style.width = '5%';
+    } else if (d.step === 'waiting') {
+      log('scan-log', d.msg, 'log-dim');
+    } else if (d.step === 'tick') {
+      const pct = 5 + ((20 - d.remaining) / 20) * 85;
+      pb.style.width = pct + '%';
+      log('scan-log', `Waiting... ${d.remaining}s remaining`, 'log-dim');
+    } else if (d.step === 'fetching') {
+      log('scan-log', d.msg, 'log-accent2');
+    } else if (d.step === 'done') {
+      pb.style.width = '100%';
+      log('scan-log', `Found ${d.networks.length} network(s)`, 'log-ok');
+      renderNetworks(d.networks);
+      markStepDone('step-2');
+      unlockStep('card-step3', 'step-3');
+      btn.disabled = false;
+      btn.innerHTML = '📶 Re-scan';
+    } else if (d.step === 'error') {
+      log('scan-log', '✗ ' + d.error, 'log-error');
+      btn.disabled = false;
+      btn.innerHTML = '📶 Scan for Networks';
+    }
+  });
+}
+
+// ─── Render network list ───
+function renderNetworks(nets) {
+  const list = document.getElementById('network-list');
+  list.innerHTML = '';
+
+  // Sort by signal
+  nets.sort((a,b) => (b.signal_level||0) - (a.signal_level||0));
+
+  nets.forEach(net => {
+    const el = document.createElement('div');
+    el.className = 'network-item';
+    const auth  = AUTH_NAMES[net.wpa_auth]   || `Auth:${net.wpa_auth}`;
+    const cipher = CIPHER_NAMES[net.wpa_cipher] || `Cipher:${net.wpa_cipher}`;
+    const rssi = net.signal_level || -90;
+    el.innerHTML = `
+      <div class="network-info">
+        <div class="network-ssid">${net.ssid || '(hidden)'}</div>
+        <div class="network-meta">
+          <span>${auth}</span>
+          <span>${cipher}</span>
+          <span>${rssi} dBm</span>
+        </div>
+      </div>
+      ${signalBars(rssi)}
+    `;
+    el.onclick = () => selectNetwork(el, net);
+    list.appendChild(el);
+  });
+}
+
+function selectNetwork(el, net) {
+  document.querySelectorAll('.network-item').forEach(n => n.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedNetwork = net;
+  document.getElementById('wifi-ssid').value = net.ssid;
+  document.getElementById('wifi-wpa-auth').value = net.wpa_auth;
+  document.getElementById('wifi-wpa-cipher').value = net.wpa_cipher;
+  document.getElementById('wifi-pass').focus();
+  markStepDone('step-3');
+  document.getElementById('step-4').classList.add('active');
+}
+
+// ─── STEP 4: Connect ───
+function doConnect() {
+  const ip     = currentIP;
+  const ssid   = document.getElementById('wifi-ssid').value;
+  const pass   = document.getElementById('wifi-pass').value;
+  const auth   = parseInt(document.getElementById('wifi-wpa-auth').value);
+  const cipher = parseInt(document.getElementById('wifi-wpa-cipher').value);
+
+  if (!pass) { showAlert('connect-alert','Enter the WiFi password','error'); return; }
+  hideAlert('connect-alert');
+  clearLog('connect-log');
+
+  const btn = document.getElementById('btn-connect-wifi');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinning">⟳</span> Connecting...';
+
+  fetchSSE('/api/connect_wifi', {ip, ssid, password: pass, wpa_auth: auth, wpa_cipher: cipher}, (evt) => {
+    const d = JSON.parse(evt);
+    const stepMsgs = {
+      pubkey:  ['Fetching device RSA public key...', 'log-dim'],
+      encrypt: ['Encrypting password with RSA PKCS#1...', 'log-accent2'],
+      connect: ['Sending connect command to device...', 'log-accent2'],
+      save:    ['Saving WiFi configuration...', 'log-accent2'],
+      done:    [d.msg, 'log-ok'],
+      error:   ['✗ ' + d.error, 'log-error'],
+    };
+    const [msg, cls] = stepMsgs[d.step] || [d.step, 'log-info'];
+    log('connect-log', msg, cls);
+
+    if (d.step === 'done') {
+      showAlert('connect-alert', '✓ ' + d.msg, 'success');
+      btn.disabled = false;
+      btn.innerHTML = '🔗 Connect Chromecast';
+      markStepDone('step-4');
+    } else if (d.step === 'error') {
+      showAlert('connect-alert', '✗ ' + d.error, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '🔗 Connect Chromecast';
+    }
+  });
+}
+
+// ─── Device info tab ───
+async function fetchDeviceInfo() {
+  const ip = document.getElementById('dev-ip').value.trim();
+  clearLog('dev-info-log');
+  document.getElementById('dev-info-cards').style.display = 'none';
+  log('dev-info-log', 'Fetching device info...', 'log-dim');
+
+  try {
+    const res = await fetch('/api/device_info', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ip})
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+
+    const info = data.info;
+    log('dev-info-log', 'Success — rendering fields', 'log-ok');
+
+    const grid = document.getElementById('dev-info-cards');
+    grid.style.display = 'grid';
+    grid.innerHTML = '';
+
+    const fields = [
+      ['Name', info.name],
+      ['Build Version', info.build_version],
+      ['Cast Build', info.cast_build_revision],
+      ['Model', info.model_name],
+      ['Device ID', info.ssdp_udn],
+      ['MAC Address', info.mac_address],
+      ['IP Address', info.ip_address],
+      ['Uptime', info.uptime ? Math.round(info.uptime) + 's' : null],
+      ['SSID', info.ssid],
+      ['BSSID', info.bssid],
+      ['Timezone', info.timezone],
+      ['Locale', info.locale],
+    ];
+
+    fields.forEach(([k,v]) => {
+      if (!v) return;
+      const cell = document.createElement('div');
+      cell.className = 'info-cell';
+      cell.innerHTML = `<div class="info-key">${k}</div><div class="info-val">${v}</div>`;
+      grid.appendChild(cell);
+    });
+
+  } catch(e) {
+    log('dev-info-log', '✗ ' + e.message, 'log-error');
+  }
+}
+
+// ─── Saved networks tab ───
+async function fetchSavedNetworks() {
+  const ip = document.getElementById('nets-ip').value.trim();
+  clearLog('nets-log');
+  log('nets-log', 'Loading configured networks...', 'log-dim');
+
+  try {
+    const res = await fetch('/api/configured_networks', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ip})
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+
+    const nets = data.networks;
+    clearLog('nets-log');
+    if (!nets.length) { log('nets-log', 'No saved networks found', 'log-warn'); return; }
+
+    const table = document.createElement('table');
+    table.className = 'net-table';
+    table.innerHTML = `<thead><tr><th>ID</th><th>SSID</th><th>Action</th></tr></thead><tbody>
+      ${nets.map(n => `
+        <tr>
+          <td style="color:var(--muted)">${n.wpa_id}</td>
+          <td style="color:var(--text);font-weight:500">${n.ssid}</td>
+          <td><button class="btn btn-danger" onclick="forgetNet('${ip}', ${n.wpa_id})">Forget</button></td>
+        </tr>
+      `).join('')}
+    </tbody>`;
+
+    const wrap = document.getElementById('nets-table-wrap');
+    wrap.innerHTML = '';
+    wrap.appendChild(table);
+
+  } catch(e) {
+    log('nets-log', '✗ ' + e.message, 'log-error');
+  }
+}
+
+async function forgetNet(ip, id) {
+  if (!confirm(`Forget network ID ${id}?`)) return;
+  try {
+    const res = await fetch('/api/forget_network', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ip, wpa_id: id})
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    fetchSavedNetworks();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+// ─── Settings tab ───
+async function saveSettings() {
+  const ip = document.getElementById('settings-ip').value.trim();
+  const name = document.getElementById('settings-name').value.trim();
+  const crash    = document.getElementById('opt-crash').checked;
+  const stats    = document.getElementById('opt-stats').checked;
+  const opencast = document.getElementById('opt-opencast').checked;
+
+  hideAlert('settings-alert');
+  try {
+    const res = await fetch('/api/set_device_name', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ip, name, crash, stats, opencast})
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    showAlert('settings-alert', '✓ Settings saved successfully', 'success');
+    if (name) setSidebarStatus(ip, name, 'ok');
+  } catch(e) {
+    showAlert('settings-alert', '✗ ' + e.message, 'error');
+  }
+}
+
+// ─── SSE via fetch POST ───
+function fetchSSE(url, body, onEvent) {
+  fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  }).then(res => {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    function read() {
+      reader.read().then(({done, value}) => {
+        if (done) return;
+        buf += decoder.decode(value, {stream: true});
+        const lines = buf.split('\n');
+        buf = lines.pop();
+        lines.forEach(line => {
+          if (line.startsWith('data: ')) {
+            onEvent(line.slice(6));
+          }
+        });
+        read();
+      });
+    }
+    read();
+  });
+}
+</script>
+</body>
+</html>
